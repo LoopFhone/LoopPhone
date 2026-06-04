@@ -1677,22 +1677,24 @@ async function processCheckout() {
 
       const totals = calcTotals();
       
+      // ה-Payload המדויק לבקשת דף תשלום (CreatePaymentPage)
       const payload = {
-        "documentType": "InvoiceWithReceipt", 
-        "customerName": state.lang === 'he' ? "לקוח אתר LoopPhone" : "LoopPhone Website Customer",
-        "customerEmail": "customer@loopphone.co.il", 
-        "isDelivery": state.isDelivery,
-        "shippingFee": totals.ship,
-        "totalAmount": totals.total,
+        "clientId": "34c661f4-e7f7-40a2-aedb-b12d6ccbdf60",
+        "paymentPageName": "רכישת מכשיר LoopPhone",
+        "amount": totals.total,
+        "currency": "ILS",
+        "language": state.lang === 'he' ? "he" : "en",
+        "successUrl": window.location.origin, 
+        "failureUrl": window.location.origin, 
+        "customerName": "לקוח אתר LoopPhone",
         "items": state.cart.map(i => ({
           "description": i.name,
           "quantity": i.qty,
-          "pricePerUnit": i.price,
-          "vatIncluded": true
+          "pricePerUnit": i.price
         }))
       };
 
-      console.log('🚀 שולח נתונים לפונקציה המאובטחת ב-Vercel:', payload);
+      console.log('🚀 שולח בקשה דינמית לדף תשלום:', payload);
 
       try {
         const response = await fetch("/api/checkout", {
@@ -1703,30 +1705,24 @@ async function processCheckout() {
           body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          throw new Error(state.lang === 'he' ? 'שגיאה בתקשורת עם שרת התשלומים' : 'Server communication error');
-        }
-
         const data = await response.json();
-        console.log('✅ תשובה שהתקבלה מ-Smart Bee:', data);
+        console.log('✅ תשובה שהתקבלה מה-API:', data);
 
-        if (data.paymentUrl) {
-          window.location.href = data.paymentUrl; 
+        // שליפת קישור דף התשלום שחוזר מהם
+        const paymentLink = data.paymentPageUrl || data.url || data.paymentLink || data.link;
+
+        if (paymentLink) {
+          window.location.href = paymentLink; // מעביר את הלקוח ישירות לעמוד הסליקה המאובטח שלהם!
         } else {
+          console.error("לא נמצא קישור תשלום במבנה שחזר:", data);
           alert(state.lang === 'he' 
-            ? `ההזמנה נקלטה בהצלחה! מספר מסמך: ${data.documentNumber || 'עסקה בטסט'}` 
-            : `Order processed successfully!`);
-          
-          state.cart = []; 
-          closeCart();
-          renderCart();
+            ? 'נוצרה בעיה בקבלת דף התשלום מהספק. הפרטים המלאים נרשמו בקונסול.' 
+            : 'Could not generate payment link.');
         }
 
       } catch (error) {
-        console.error('❌ שגיאה בתהליך ה-Checkout:', error);
-        alert(state.lang === 'he' 
-          ? 'אירעה שגיאה בעיבוד ההזמנה. אנא נסה שנית או צור קשר בוואטסאפ.' 
-          : 'An error occurred while processing your order. Please try again.');
+        console.error('❌ שגיאה:', error);
+        alert(state.lang === 'he' ? 'אירעה שגיאה בעיבוד ההזמנה.' : 'An error occurred.');
       } finally {
         btn.innerHTML = orig; btn.disabled = false; btn.style.opacity = '1';
       }
