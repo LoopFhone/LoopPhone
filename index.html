@@ -1668,7 +1668,7 @@
       renderCartCount();
     }
 
-    async function processCheckout() {
+async function processCheckout() {
       const btn = $('#checkoutBtn');
       if (!btn) return;
       const orig = btn.innerHTML;
@@ -1676,19 +1676,60 @@
       btn.disabled = true; btn.style.opacity = '0.7';
 
       const totals = calcTotals();
+      
       const payload = {
-        amount: totals.total,
-        description: 'הזמנה מ-LoopPhone',
-        items: state.cart.map(i => ({ name: i.name, quantity: i.qty, price: i.price })),
-        shipping_fee: totals.ship,
-        delivery_requested: state.isDelivery
+        "documentType": "InvoiceWithReceipt", 
+        "customerName": state.lang === 'he' ? "לקוח אתר LoopPhone" : "LoopPhone Website Customer",
+        "customerEmail": "customer@loopphone.co.il", 
+        "isDelivery": state.isDelivery,
+        "shippingFee": totals.ship,
+        "totalAmount": totals.total,
+        "items": state.cart.map(i => ({
+          "description": i.name,
+          "quantity": i.qty,
+          "pricePerUnit": i.price,
+          "vatIncluded": true
+        }))
       };
-      console.log('🚀 Payload:', payload);
 
-      setTimeout(() => {
-        alert('כאן הקוד מתממשק עם ה-API של חברת הסליקה.\nהנתונים מחכים בקונסול.');
+      console.log('🚀 שולח נתונים לפונקציה המאובטחת ב-Vercel:', payload);
+
+      try {
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(state.lang === 'he' ? 'שגיאה בתקשורת עם שרת התשלומים' : 'Server communication error');
+        }
+
+        const data = await response.json();
+        console.log('✅ תשובה שהתקבלה מ-Smart Bee:', data);
+
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl; 
+        } else {
+          alert(state.lang === 'he' 
+            ? `ההזמנה נקלטה בהצלחה! מספר מסמך: ${data.documentNumber || 'עסקה בטסט'}` 
+            : `Order processed successfully!`);
+          
+          state.cart = []; 
+          closeCart();
+          renderCart();
+        }
+
+      } catch (error) {
+        console.error('❌ שגיאה בתהליך ה-Checkout:', error);
+        alert(state.lang === 'he' 
+          ? 'אירעה שגיאה בעיבוד ההזמנה. אנא נסה שנית או צור קשר בוואטסאפ.' 
+          : 'An error occurred while processing your order. Please try again.');
+      } finally {
         btn.innerHTML = orig; btn.disabled = false; btn.style.opacity = '1';
-      }, 1500);
+      }
     }
 
     function addToCart(id) {
