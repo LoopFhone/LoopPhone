@@ -1677,47 +1677,56 @@ async function processCheckout() {
 
       const totals = calcTotals();
       
-      // בניית ה-Payload המדויק לפי ה-Schema הרשמי של Smart Bee
-      const payload = {
-        "documentType": "InvoiceWithReceipt",
-        
-        // שליחת המטבע כאובייקט פנימי מדויק כפי שהשרת שלהם דורש
-        "currency": {
-          "currencyType": 1
-        },
-        
-        "language": state.lang === 'he' ? "he" : "en",
-        "customerName": "לקוח אתר LoopPhone",
-        "customerEmail": "customer@loopphone.co.il",
-        
-        // מעבר דינמי על המוצרים בסל
-        "items": state.cart.map(i => ({
-          "description": i.name,
-          "quantity": i.qty,
-          "pricePerUnit": i.price,
-          "vatIncluded": true
-        })),
-        
-        // מערך תשלום מנדטורי עבור קבלות/חשבוניות מס קבלה
-        "payments": [
-          {
-            "paymentType": 1, // 1 = כרטיס אשראי
-            "amount": totals.total // המחיר הסופי המעודכן דינמית כולל משלוח
-          }
-        ]
-      };
+      // בניית רשימת הפריטים במבנה המדויק מה-Swagger: documentItems -> paymentItems
+      const itemsList = state.cart.map(i => ({
+        "description": i.name,
+        "quantity": i.qty,
+        "pricePerUnit": i.price,
+        "vatOption": "Include" // כולל מע"מ
+      }));
 
-      // אם יש עלות משלוח, נוסיף אותה כפריט נפרד ברשימה
+      // הוספת משלוח כפריט במידה וקיים
       if (totals.ship > 0) {
-        payload.items.push({
+        itemsList.push({
           "description": state.lang === 'he' ? "משלוח לבית" : "Home Delivery",
           "quantity": 1,
           "pricePerUnit": totals.ship,
-          "vatIncluded": true
+          "vatOption": "Include"
         });
       }
 
-      console.log('🚀 שולח בקשת הפקת מסמך מעודכנת ל-Backend:', payload);
+      // 🚀 ה-Payload המושלם שנבנה בדיוק לפי הסכמה של אדי
+      const payload = {
+        "docType": "InvoiceReceipt",
+        "customer": {
+          "name": "לקוח אתר LoopPhone",
+          "email": "customer@loopphone.co.il"
+        },
+        "currency": {
+          "currencyType": "ILS",
+          "rate": 1
+        },
+        "documentItems": {
+          "paymentItems": itemsList,
+          "roundTotalSum": true
+        },
+        // למערכת של סמארט בי, כדי להפעיל סליקה דוקומנטרית, שולחים את סכום האשראי כאן
+        "receiptDetails": {
+          "creditCardItems": [
+            {
+              "creditCardType": "Isracard", // ברירת מחדל לטסט
+              "creditDealType": "Regular",
+              "sum": totals.total
+            }
+          ]
+        },
+        "creationMetadata": {
+          "language": state.lang === 'he' ? "HEB" : "ENG",
+          "sendOriginalToCustomer": true
+        }
+      };
+
+      console.log('🚀 שולח בקשת הפקת מסמך סופית ותואמת Swagger:', payload);
 
       try {
         const response = await fetch("/api/checkout", {
@@ -1730,14 +1739,14 @@ async function processCheckout() {
         console.log('✅ תשובה שהתקבלה מהשרת:', data);
 
         if (response.ok) {
-          // בדיקה אם חזר קישור לתשלום/סליקה בתוך אובייקט התשובה
-          const paymentUrl = data.paymentUrl || (data.smartBeeResponse && data.smartBeeResponse.paymentUrl);
+          // בדיקה אם חזר קישור לתשלום/סליקה (למשל paymentPageUrl או בתוך תשובת השרת)
+          const paymentUrl = data.paymentPageUrl || data.url || (data.smartBeeResponse && data.smartBeeResponse.paymentPageUrl);
           
           if (paymentUrl) {
             window.location.href = paymentUrl; // הפניה ישירה לדף הסליקה באשראי!
           } else {
             alert(state.lang === 'he' 
-              ? `העסקה בוצעה בהצלחה בטסט! מספר מסמך: ${data.documentNumber || data.id || 'תקין'}` 
+              ? 'העסקה נקלטה בהצלחה במערכת הטסט!' 
               : 'Order processed successfully in test mode!');
             
             state.cart = []; 
@@ -1746,9 +1755,7 @@ async function processCheckout() {
           }
         } else {
           console.error("פרטי השגיאה מחברת הסליקה:", data);
-          alert(state.lang === 'he' 
-            ? `חברת הסליקה דחתה את הנתונים: ${data.smartBeeResponse?.message || 'בדוק את הקונסול'}` 
-            : 'Order rejected by provider.');
+          alert(state.lang === 'he' ? 'חברת הסליקה דחתה את הנתונים. בדוק את הקונסול.' : 'Order rejected.');
         }
 
       } catch (error) {
