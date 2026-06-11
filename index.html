@@ -1677,47 +1677,60 @@ async function processCheckout() {
 
       const totals = calcTotals();
       
-      // ה-Payload המדויק לבקשת דף תשלום (CreatePaymentPage)
+      // מבנה ה-Payload הדינמי המדויק עבור Documents/create לפי התיעוד שלכם
       const payload = {
-        "clientId": "34c661f4-e7f7-40a2-aedb-b12d6ccbdf60",
-        "paymentPageName": "רכישת מכשיר LoopPhone",
-        "amount": totals.total,
-        "currency": "ILS",
+        "documentType": 1, // 1 = חשבונית מס קבלה
         "language": state.lang === 'he' ? "he" : "en",
-        "successUrl": window.location.origin, 
-        "failureUrl": window.location.origin, 
-        "customerName": "לקוח אתר LoopPhone",
+        "currency": "ILS",
+        "customer": {
+          "name": "לקוח אתר LoopPhone",
+          "email": "customer@loopphone.co.il"
+        },
+        // מעבר דינמי על המוצרים בסל
         "items": state.cart.map(i => ({
           "description": i.name,
           "quantity": i.qty,
-          "pricePerUnit": i.price
-        }))
+          "pricePerUnit": i.price,
+          "vatIncluded": true
+        })),
+        // הוספת עלות משלוח כפריט נפרד במידה ויש משלוח, כדי שהסכום יתאים ב-100%
+        ...(totals.ship > 0 ? {
+          "shippingInformation": {
+            "shippingFee": totals.ship
+          }
+        } : {}),
+        // מערך תשלום מנדטורי עבור הפקת חשבונית מס קבלה באשראי
+        "payments": [
+          {
+            "paymentType": 1, // 1 = כרטיס אשראי
+            "amount": totals.total // המחיר הסופי המדויק כולל משלוח
+          }
+        ]
       };
 
-      console.log('🚀 שולח בקשה דינמית לדף תשלום:', payload);
+      console.log('🚀 שולח בקשת הפקת מסמך:', payload);
 
       try {
         const response = await fetch("/api/checkout", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
 
         const data = await response.json();
-        console.log('✅ תשובה שהתקבלה מה-API:', data);
+        console.log('✅ תשובה שהתקבלה מהשרת:', data);
 
-        // שליפת קישור דף התשלום שחוזר מהם
-        const paymentLink = data.paymentPageUrl || data.url || data.paymentLink || data.link;
-
-        if (paymentLink) {
-          window.location.href = paymentLink; // מעביר את הלקוח ישירות לעמוד הסליקה המאובטח שלהם!
-        } else {
-          console.error("לא נמצא קישור תשלום במבנה שחזר:", data);
+        // אם המערכת הפיקה מסמך בהצלחה או החזירה קישור
+        if (response.ok) {
           alert(state.lang === 'he' 
-            ? 'נוצרה בעיה בקבלת דף התשלום מהספק. הפרטים המלאים נרשמו בקונסול.' 
-            : 'Could not generate payment link.');
+            ? 'העסקה נקלטה בהצלחה במערכת הטסט!' 
+            : 'Order processed successfully in test mode!');
+          
+          state.cart = []; 
+          closeCart();
+          renderCart();
+        } else {
+          alert(state.lang === 'he' ? 'חברת הסליקה דחתה את הנתונים. בדוק את הקונסול.' : 'Order rejected.');
         }
 
       } catch (error) {
@@ -1727,7 +1740,7 @@ async function processCheckout() {
         btn.innerHTML = orig; btn.disabled = false; btn.style.opacity = '1';
       }
     }
-
+    
     function addToCart(id) {
       const product = getProduct(id);
       if (!product) return;
