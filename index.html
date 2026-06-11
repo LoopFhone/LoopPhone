@@ -1735,7 +1735,7 @@ async function processCheckout() {
 
           // קוד 101 אומר שהבקשה נוצרה וממתינה לתשלום הלקוח בדף החיצוני
           if (resultCodeId === 101 && apiMessageId) {
-            const paymentUrl = `https://test.smartbee.co.il/Public/ClearingPage/${apiMessageId}`;
+            const paymentUrl = `https://test.smartbee.co.il/public/clearing/?id=${apiMessageId}`;
             console.log('💳 מעביר את הלקוח לדף התשלום המאובטח של סמארט בי:', paymentUrl);
             window.location.href = paymentUrl; // 🚀 הפניה אוטומטית לעמוד הזנת האשראי!
           } else if (resultCodeId === 102) {
