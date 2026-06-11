@@ -1694,12 +1694,10 @@ async function processCheckout() {
         });
       }
 
-      // 🚀 ה-Payload המעודכן ליצירת דף תשלום חיצוני:
-      // מסירים את ה-creditCardItems הפיקטיבי כדי שהשרת יבין שצריך לסלוק כעת!
-      // 🚀 Payload מעודכן: הפעלת דף תשלום דינמי ללא דיווח על כרטיס קיים
+      // ה-Payload המעודכן שעבר בהצלחה בסטטוס 200
       const payload = {
         "docType": "InvoiceReceipt",
-        "isPaymentPageCreation": true, // 👈 הגדרה לשרת לייצר דף סליקה חיצוני
+        "isPaymentPageCreation": true, 
         "customer": {
           "name": "לקוח אתר LoopPhone",
           "email": "customer@loopphone.co.il"
@@ -1728,33 +1726,29 @@ async function processCheckout() {
         });
 
         const data = await response.json();
-        console.log('✅ תשובת השרת שהתקבל:', data);
+        console.log('✅ תשובה שהתקבלה מהשרת:', data);
 
         if (response.ok) {
-          // מציאת הקישור לדף התשלום מתוך מבני התשובה האפשריים של סמארט בי
-          const paymentUrl = data.paymentPageUrl || 
-                             data.result?.paymentPageUrl || 
-                             data.smartBeeResponse?.paymentPageUrl ||
-                             data.smartBeeResponse?.result?.paymentPageUrl;
-          
-          if (paymentUrl) {
-            console.log('💳 נמצא קישור סליקה! מעביר את הלקוח לתשלום:', paymentUrl);
-            window.location.href = paymentUrl; // 👈 הפניית הלקוח לדף התשלום המאובטח!
+          // חילוץ ה-ID של בקשת המסמך/סליקה מהתשובה שראינו בקונסול
+          const apiMessageId = data.result || (data.smartBeeResponse && data.smartBeeResponse.result);
+          const resultCodeId = data.resultCodeId || (data.smartBeeResponse && data.smartBeeResponse.resultCodeId);
+
+          // קוד 101 אומר שהבקשה נוצרה וממתינה לתשלום הלקוח בדף החיצוני
+          if (resultCodeId === 101 && apiMessageId) {
+            const paymentUrl = `https://test.smartbee.co.il/Public/ClearingPage/${apiMessageId}`;
+            console.log('💳 מעביר את הלקוח לדף התשלום המאובטח של סמארט בי:', paymentUrl);
+            window.location.href = paymentUrl; // 🚀 הפניה אוטומטית לעמוד הזנת האשראי!
+          } else if (resultCodeId === 102) {
+            // קוד 102 אומר שהמסמך הופק ישירות
+            alert(state.lang === 'he' ? 'העסקה אושרה והמסמך הופק בהצלחה!' : 'Order processed successfully!');
+            state.cart = []; closeCart(); renderCart();
           } else {
-            // אם השרת הפיק מסמך ישיר ללא דף תשלום בגלל הגדרות החשבון
-            alert(state.lang === 'he' 
-              ? `העסקה אושרה בטסט! מספר מסמך: ${data.result?.docNumber || 'תקין'}` 
-              : 'Order processed successfully!');
-            
-            state.cart = []; 
-            closeCart();
-            renderCart();
+            console.warn('⚠️ התקבל קוד תגובה לא צפוי:', resultCodeId);
+            alert(state.lang === 'he' ? 'הבקשה נקלטה, אך לא נוצר דף תשלום. בדוק את מערכת סמארט בי.' : 'Unexpected response from provider.');
           }
         } else {
-          console.error("❌ שגיאה בהפקת דף התשלום:", data);
-          alert(state.lang === 'he' 
-            ? `חברת הסליקה דחתה את הבקשה: ${data.smartBeeResponse?.message || 'בדוק את הלוגים'}` 
-            : 'Order rejected by provider.');
+          console.error("❌ שגיאה מה-API של חברת הסליקה:", data);
+          alert(state.lang === 'he' ? 'חברת הסליקה דחתה את הנתונים. בדוק את הקונסול.' : 'Order rejected.');
         }
 
       } catch (error) {
