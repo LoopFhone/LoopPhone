@@ -1714,8 +1714,10 @@ async function processCheckout() {
         "receiptDetails": {
           "creditCardItems": [
             {
-              "creditCardType": "Isracard", // ברירת מחדל לטסט
+              "creditCardType": "Isracard",
               "creditDealType": "Regular",
+              "cardNumber": "0000", // חובה בטסט
+              "installmentsNumber": 1, // חובה לפחות 1
               "sum": totals.total
             }
           ]
