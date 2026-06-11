@@ -1696,8 +1696,10 @@ async function processCheckout() {
 
       // 🚀 ה-Payload המעודכן ליצירת דף תשלום חיצוני:
       // מסירים את ה-creditCardItems הפיקטיבי כדי שהשרת יבין שצריך לסלוק כעת!
+      // 🚀 Payload מעודכן: הפעלת דף תשלום דינמי ללא דיווח על כרטיס קיים
       const payload = {
         "docType": "InvoiceReceipt",
+        "isPaymentPageCreation": true, // 👈 הגדרה לשרת לייצר דף סליקה חיצוני
         "customer": {
           "name": "לקוח אתר LoopPhone",
           "email": "customer@loopphone.co.il"
@@ -1710,8 +1712,6 @@ async function processCheckout() {
           "paymentItems": itemsList,
           "roundTotalSum": true
         },
-        // משאירים את מערך ה-receiptDetails ריק מכרטיסים כדי לסמן למערכת לייצר דף תשלום
-        "receiptDetails": {}, 
         "creationMetadata": {
           "language": state.lang === 'he' ? "HEB" : "ENG",
           "sendOriginalToCustomer": true
