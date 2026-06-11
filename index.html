@@ -1710,18 +1710,20 @@ async function processCheckout() {
           "paymentItems": itemsList,
           "roundTotalSum": true
         },
-        // למערכת של סמארט בי, כדי להפעיל סליקה דוקומנטרית, שולחים את סכום האשראי כאן
+        
+        // 🚀 התיקון המרכזי: אות קטנה ב-receiptDetails, אבל אות גדולה בשדות הפנימיים!
         "receiptDetails": {
           "creditCardItems": [
             {
               "creditCardType": "Isracard",
               "creditDealType": "Regular",
-              "cardNumber": "0000", // חובה בטסט
-              "installmentsNumber": 1, // חובה לפחות 1
+              "cardNumber": "0000",        // 👈 אות קטנה לפי ה-Schema המקורית
+              "installmentsNumber": 1,   // 👈 אות קטנה לפי ה-Schema המקורית
               "sum": totals.total
             }
           ]
         },
+        
         "creationMetadata": {
           "language": state.lang === 'he' ? "HEB" : "ENG",
           "sendOriginalToCustomer": true
