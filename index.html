@@ -1677,14 +1677,18 @@ async function processCheckout() {
 
       const totals = calcTotals();
       
-      // מבנה ה-Payload הדינמי המדויק עבור Documents/create לפי התיעוד שלכם
+      // בניית ה-Payload המדויק לפי ה-Schema שמצאת בתיעוד
       const payload = {
-        "documentType": 1, // 1 = חשבונית מס קבלה
+        "documentType": "InvoiceWithReceipt",
+        
+        // 🚀 התיקון המדויק: שליחת המטבע כאובייקט פנימי ולא כטקסט שטוח!
+        "currency": {
+          "currencyType": 1
+        },
+        
         "language": state.lang === 'he' ? "he" : "en",
-        "currency": "Nis",
-        "customer": {
-          "name": "לקוח אתר LoopPhone",
-          "email": "customer@loopphone.co.il"
+        "customerName": "לקוח אתר LoopPhone",
+        "customerEmail": "customer@loopphone.co.il"
         },
         // מעבר דינמי על המוצרים בסל
         "items": state.cart.map(i => ({
