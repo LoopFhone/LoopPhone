@@ -1681,7 +1681,7 @@ async function processCheckout() {
       const payload = {
         "documentType": 1, // 1 = חשבונית מס קבלה
         "language": state.lang === 'he' ? "he" : "en",
-        "currency": "ILS",
+        "currency": 1,
         "customer": {
           "name": "לקוח אתר LoopPhone",
           "email": "customer@loopphone.co.il"
